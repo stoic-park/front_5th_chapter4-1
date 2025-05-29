@@ -1,36 +1,51 @@
+# 워크플로우의 이름을 정의합니다
 name: Deploy Next.js to S3 and invalidate CloudFront
 
+# 워크플로우가 실행되는 조건을 정의합니다
 on:
+  # main 브랜치에 push가 발생할 때 실행됩니다
   push:
     branches:
       - main  # 또는 master, 프로젝트의 기본 브랜치 이름에 맞게 조정
+  # GitHub Actions UI에서 수동으로 실행할 수 있게 합니다
   workflow_dispatch:
 
+# 실행할 작업들을 정의합니다
 jobs:
+  # deploy라는 이름의 작업을 정의합니다
   deploy:
+    # Ubuntu 최신 버전에서 실행합니다
     runs-on: ubuntu-latest
     
+    # 작업의 각 단계를 정의합니다
     steps:
+    # 1. 저장소의 코드를 체크아웃합니다
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # 2. 프로젝트의 의존성 패키지들을 설치합니다
     - name: Install dependencies
       run: npm ci
 
+    # 3. Next.js 프로젝트를 빌드합니다
     - name: Build
       run: npm run build
 
+    # 4. AWS 자격 증명을 설정합니다
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
+        # GitHub Secrets에서 AWS 접근 키를 가져옵니다
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
+    # 5. 빌드된 파일들을 S3 버킷에 동기화합니다
     - name: Deploy to S3
       run: |
         aws s3 sync out/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
 
+    # 6. CloudFront의 캐시를 무효화하여 새로운 내용이 바로 반영되도록 합니다
     - name: Invalidate CloudFront cache
       run: |
         aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
